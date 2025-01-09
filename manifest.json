@@ -1,0 +1,9 @@
+{
+    "name": "Tetris Game",
+    "short_name": "Tetris",
+    "description": "A fun and interactive Tetris game",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#000000"
+}
