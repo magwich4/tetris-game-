@@ -3,281 +3,254 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="X-UA-Compatible" content="ie=edge">
     <title>Tetris Game</title>
-    <link rel="stylesheet" href="style.css">
+    <!-- Link to the manifest.json -->
     <link rel="manifest" href="manifest.json">
-    <script src="game.js" defer></script>
 </head>
 <body>
     <h1>Tetris Game</h1>
-    <canvas id="gameCanvas" width="400" height="500"></canvas>
-    <p>Score: <span id="score">0</span></p>
-    <button id="installButton" style="display: none;">Install Tetris</button>
+    <script src="game.js"></script> <!-- Link to your game logic in game.js -->
 </body>
 </html>
-body {
-    text-align: center;
-    font-family: Arial, sans-serif;
-    margin: 0;
-    padding: 0;
+
+{
+    "name": "Tetris Game",
+    "short_name": "Tetris",
+    "description": "A fun and interactive Tetris game",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#ffffff",
+    "theme_color": "#000000"
 }
 
-#gameCanvas {
-    border: 2px solid #000;
-    display: block;
-    margin: 0 auto;
-}
+const colors = [
+    (0, 0, 0),
+    (120, 37, 179),
+    (100, 179, 179),
+    (80, 34, 22),
+    (80, 134, 22),
+    (180, 34, 22),
+    (180, 34, 122),
+];
 
-#installButton {
-    margin-top: 20px;
-    padding: 10px 20px;
-    background-color: #4CAF50;
-    color: white;
-    border: none;
-    cursor: pointer;
-}
+class Figure {
+    x = 0;
+    y = 0;
 
-#installButton:hover {
-    background-color: #45a049;
-}
-document.addEventListener("DOMContentLoaded", () => {
-    const canvas = document.getElementById("gameCanvas");
-    const ctx = canvas.getContext("2d");
-
-    // Constants
-    const COLS = 10;
-    const ROWS = 20;
-    const BLOCK_SIZE = 25; // Size of each block
-
-    // Colors
-    const colors = [
-        null, // No color for the background
-        "red", "blue", "green", "yellow", "cyan", "magenta", "orange", "purple"
+    figures = [
+        [[1, 5, 9, 13], [4, 5, 6, 7]],
+        [[4, 5, 9, 10], [2, 6, 5, 9]],
+        [[6, 7, 9, 10], [1, 5, 6, 10]],
+        [[1, 2, 5, 9], [0, 4, 5, 6], [1, 5, 9, 8], [4, 5, 6, 10]],
+        [[1, 2, 6, 10], [5, 6, 7, 9], [2, 6, 10, 11], [3, 5, 6, 7]],
+        [[1, 4, 5, 6], [1, 4, 5, 9], [4, 5, 6, 9], [1, 5, 6, 9]],
+        [[1, 2, 5, 6]],
     ];
 
-    // Tetris pieces (Tetrominoes)
-    const tetrominoes = [
-        [[1, 1, 1, 1]], // I shape
-        [[1, 1], [1, 1]], // O shape
-        [[1, 0, 0], [1, 1, 1]], // L shape
-        [[0, 0, 1], [1, 1, 1]], // J shape
-        [[1, 1, 0], [0, 1, 1]], // S shape
-        [[0, 1, 1], [1, 1, 0]], // Z shape
-        [[0, 1, 0], [1, 1, 1]], // T shape
-    ];
-
-    // Game state variables
-    let board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
-    let currentPiece = generateRandomPiece();
-    let currentX = Math.floor(COLS / 2) - 1;
-    let currentY = 0;
-    let score = 0;
-    let gameOver = false;
-
-    // Generate a random Tetromino piece
-    function generateRandomPiece() {
-        const piece = tetrominoes[Math.floor(Math.random() * tetrominoes.length)];
-        return piece;
+    constructor(x, y) {
+        this.x = x;
+        this.y = y;
+        this.type = Math.floor(Math.random() * this.figures.length);
+        this.color = Math.floor(Math.random() * (colors.length - 1)) + 1;
+        this.rotation = 0;
     }
 
-    // Draw the game board
-    function drawBoard() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas
+    image() {
+        return this.figures[this.type][this.rotation];
+    }
 
-        // Draw the board
-        for (let row = 0; row < ROWS; row++) {
-            for (let col = 0; col < COLS; col++) {
-                if (board[row][col] > 0) {
-                    ctx.fillStyle = colors[board[row][col]];
-                    ctx.fillRect(col * BLOCK_SIZE, row * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-                    ctx.strokeStyle = "black";
-                    ctx.strokeRect(col * BLOCK_SIZE, row * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-                }
-            }
-        }
+    rotate() {
+        this.rotation = (this.rotation + 1) % this.figures[this.type].length;
+    }
+}
 
-        // Draw the current piece
-        for (let row = 0; row < currentPiece.length; row++) {
-            for (let col = 0; col < currentPiece[row].length; col++) {
-                if (currentPiece[row][col] > 0) {
-                    ctx.fillStyle = colors[currentPiece[row][col]];
-                    ctx.fillRect((currentX + col) * BLOCK_SIZE, (currentY + row) * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-                    ctx.strokeStyle = "black";
-                    ctx.strokeRect((currentX + col) * BLOCK_SIZE, (currentY + row) * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
-                }
-            }
+class Tetris {
+    constructor(height, width) {
+        this.level = 2;
+        this.score = 0;
+        this.state = "start";
+        this.field = [];
+        this.height = height;
+        this.width = width;
+        this.x = 100;
+        this.y = 60;
+        this.zoom = 20;
+        this.figure = null;
+
+        for (let i = 0; i < height; i++) {
+            this.field.push(new Array(width).fill(0));
         }
     }
 
-    // Check for collisions
-    function checkCollision() {
-        for (let row = 0; row < currentPiece.length; row++) {
-            for (let col = 0; col < currentPiece[row].length; col++) {
-                if (currentPiece[row][col] > 0) {
-                    let newX = currentX + col;
-                    let newY = currentY + row;
+    newFigure() {
+        this.figure = new Figure(3, 0);
+    }
 
-                    if (newX < 0 || newX >= COLS || newY >= ROWS || board[newY] && board[newY][newX] > 0) {
-                        return true; // Collision detected
+    intersects() {
+        let intersection = false;
+        for (let i = 0; i < 4; i++) {
+            for (let j = 0; j < 4; j++) {
+                if (i * 4 + j in this.figure.image()) {
+                    if (
+                        i + this.figure.y > this.height - 1 ||
+                        j + this.figure.x > this.width - 1 ||
+                        j + this.figure.x < 0 ||
+                        this.field[i + this.figure.y][j + this.figure.x] > 0
+                    ) {
+                        intersection = true;
                     }
                 }
             }
         }
-        return false; // No collision
+        return intersection;
     }
 
-    // Place the current piece on the board
-    function placePiece() {
-        for (let row = 0; row < currentPiece.length; row++) {
-            for (let col = 0; col < currentPiece[row].length; col++) {
-                if (currentPiece[row][col] > 0) {
-                    board[currentY + row][currentX + col] = currentPiece[row][col];
+    breakLines() {
+        let lines = 0;
+        for (let i = 1; i < this.height; i++) {
+            let zeros = 0;
+            for (let j = 0; j < this.width; j++) {
+                if (this.field[i][j] === 0) {
+                    zeros++;
+                }
+            }
+            if (zeros === 0) {
+                lines++;
+                for (let i1 = i; i1 >= 1; i1--) {
+                    for (let j = 0; j < this.width; j++) {
+                        this.field[i1][j] = this.field[i1 - 1][j];
+                    }
                 }
             }
         }
-        clearLines();
-        currentPiece = generateRandomPiece();
-        currentX = Math.floor(COLS / 2) - 1;
-        currentY = 0;
-        if (checkCollision()) {
-            gameOver = true;
+        this.score += lines ** 2;
+    }
+
+    goSpace() {
+        while (!this.intersects()) {
+            this.figure.y++;
+        }
+        this.figure.y--;
+        this.freeze();
+    }
+
+    goDown() {
+        this.figure.y++;
+        if (this.intersects()) {
+            this.figure.y--;
+            this.freeze();
         }
     }
 
-    // Clear full lines
-    function clearLines() {
-        for (let row = ROWS - 1; row >= 0; row--) {
-            if (board[row].every(cell => cell > 0)) {
-                board.splice(row, 1);
-                board.unshift(Array(COLS).fill(0));
-                score += 100;
+    freeze() {
+        for (let i = 0; i < 4; i++) {
+            for (let j = 0; j < 4; j++) {
+                if (i * 4 + j in this.figure.image()) {
+                    this.field[i + this.figure.y][j + this.figure.x] = this.figure.color;
+                }
             }
         }
-    }
-
-    // Handle user input for controlling the piece
-    function handleInput(event) {
-        if (gameOver) return;
-
-        if (event.key === "ArrowLeft") {
-            currentX--;
-            if (checkCollision()) currentX++;
-        } else if (event.key === "ArrowRight") {
-            currentX++;
-            if (checkCollision()) currentX--;
-        } else if (event.key === "ArrowDown") {
-            currentY++;
-            if (checkCollision()) {
-                currentY--;
-                placePiece();
-            }
-        } else if (event.key === "ArrowUp") {
-            const rotated = rotatePiece();
-            if (!checkCollision()) {
-                currentPiece = rotated;
-            }
+        this.breakLines();
+        this.newFigure();
+        if (this.intersects()) {
+            this.state = "gameover";
         }
     }
 
-    // Rotate the current piece
-    function rotatePiece() {
-        const rotated = currentPiece[0].map((_, index) =>
-            currentPiece.map(row => row[index])
-        ).reverse();
-        return rotated;
-    }
-
-    // Game loop
-    function gameLoop() {
-        if (gameOver) {
-            alert("Game Over! Score: " + score);
-            return;
+    goSide(dx) {
+        let oldX = this.figure.x;
+        this.figure.x += dx;
+        if (this.intersects()) {
+            this.figure.x = oldX;
         }
-
-        drawBoard();
-        requestAnimationFrame(gameLoop);
     }
 
-    // Listen for keypress events
-    window.addEventListener("keydown", handleInput);
-
-    // Start the game
-    gameLoop();
-});
-{
-  "name": "Tetris Game",
-  "short_name": "Tetris",
-  "description": "A fun and interactive Tetris game",
-  "start_url": "/",
-  "display": "standalone",
-  "background_color": "#ffffff",
-  "theme_color": "#000000",
-  "icons": [
-    {
-      "src": "icon-192.png",
-      "sizes": "192x192",
-      "type": "image/png"
-    },
-    {
-      "src": "icon-512.png",
-      "sizes": "512x512",
-      "type": "image/png"
+    rotate() {
+        let oldRotation = this.figure.rotation;
+        this.figure.rotate();
+        if (this.intersects()) {
+            this.figure.rotation = oldRotation;
+        }
     }
-  ]
 }
-self.addEventListener('install', event => {
-    event.waitUntil(
-        caches.open('tetris-cache').then(cache => {
-            return cache.addAll([
-                '/',
-                '/index.html',
-                '/style.css',
-                '/game.js',
-                '/manifest.json',
-                '/icon-192.png',
-                '/icon-512.png'
-            ]);
-        })
-    );
-});
 
-self.addEventListener('fetch', event => {
-    event.respondWith(
-        caches.match(event.request).then(cachedResponse => {
-            return cachedResponse || fetch(event.request);
-        })
-    );
-});
-self.addEventListener('install', event => {
-    event.waitUntil(
-        caches.open('tetris-cache').then(cache => {
-            return cache.addAll([
-                '/',
-                '/index.html',
-                '/style.css',
-                '/game.js',
-                '/manifest.json',
-                '/icon-192.png',
-                '/icon-512.png'
-            ]);
-        })
-    );
-});
+// Initialize the game engine
+const canvas = document.createElement('canvas');
+document.body.appendChild(canvas);
+const ctx = canvas.getContext('2d');
+canvas.width = 400;
+canvas.height = 500;
 
-self.addEventListener('fetch', event => {
-    event.respondWith(
-        caches.match(event.request).then(cachedResponse => {
-            return cachedResponse || fetch(event.request);
-        })
-    );
-});
-if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/service-worker.js').then(registration => {
-            console.log('Service Worker registered with scope:', registration.scope);
-        }).catch(error => {
-            console.log('Service Worker registration failed:', error);
-        });
-    });
+const game = new Tetris(20, 10);
+game.newFigure();
+
+let counter = 0;
+let pressingDown = false;
+const fps = 25;
+
+function update() {
+    if (game.figure === null) {
+        game.newFigure();
+    }
+    counter++;
+    if (counter > 100000) counter = 0;
+
+    if (counter % (fps / game.level / 2) === 0 || pressingDown) {
+        if (game.state === 'start') {
+            game.goDown();
+        }
+    }
+
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    for (let i = 0; i < game.height; i++) {
+        for (let j = 0; j < game.width; j++) {
+            ctx.strokeStyle = 'gray';
+            ctx.strokeRect(game.x + game.zoom * j, game.y + game.zoom * i, game.zoom, game.zoom);
+            if (game.field[i][j] > 0) {
+                ctx.fillStyle = colors[game.field[i][j]];
+                ctx.fillRect(game.x + game.zoom * j + 1, game.y + game.zoom * i + 1, game.zoom - 2, game.zoom - 1);
+            }
+        }
+    }
+
+    if (game.figure !== null) {
+        for (let i = 0; i < 4; i++) {
+            for (let j = 0; j < 4; j++) {
+                let p = i * 4 + j;
+                if (p in game.figure.image()) {
+                    ctx.fillStyle = colors[game.figure.color];
+                    ctx.fillRect(game.x + game.zoom * (j + game.figure.x) + 1,
+                        game.y + game.zoom * (i + game.figure.y) + 1, game.zoom - 2, game.zoom - 2);
+                }
+            }
+        }
+    }
+
+    if (game.state === "gameover") {
+        ctx.fillStyle = 'orange';
+        ctx.font = '65px Calibri';
+        ctx.fillText('Game Over', 50, 200);
+        ctx.fillText('Press ESC', 100, 265);
+    }
+
+    requestAnimationFrame(update);
 }
+
+update();
+
+// Handle keyboard input
+document.addEventListener('keydown', function (e) {
+    if (e.key === 'ArrowUp') game.rotate();
+    if (e.key === 'ArrowDown') pressingDown = true;
+    if (e.key === 'ArrowLeft') game.goSide(-1);
+    if (e.key === 'ArrowRight') game.goSide(1);
+    if (e.key === ' ') game.goSpace();
+    if (e.key === 'Escape') game.__init__(20, 10);
+});
+
+document.addEventListener('keyup', function (e) {
+    if (e.key === 'ArrowDown') pressingDown = false;
+});
 
