@@ -1,249 +1,283 @@
-import json
-
-# Define the manifest data as a Python dictionary
-manifest_data = {
-    "name": "Tetris Game",
-    "short_name": "Tetris",
-    "description": "A fun and interactive Tetris game",
-    "start_url": "/",
-    "display": "standalone",
-    "background_color": "#ffffff",
-    "theme_color": "#000000",
-    "icons": [
-        {
-            "src": "/icon-192.png",
-            "sizes": "192x192",
-            "type": "image/png"
-        },
-        {
-            "src": "/icon-512.png",
-            "sizes": "512x512",
-            "type": "image/png"
-        }
-    ]
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tetris Game</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <script src="game.js" defer></script>
+</head>
+<body>
+    <h1>Tetris Game</h1>
+    <canvas id="gameCanvas" width="400" height="500"></canvas>
+    <p>Score: <span id="score">0</span></p>
+    <button id="installButton" style="display: none;">Install Tetris</button>
+</body>
+</html>
+body {
+    text-align: center;
+    font-family: Arial, sans-serif;
+    margin: 0;
+    padding: 0;
 }
 
-# Save the dictionary as a JSON file
-with open("manifest.json", "w") as manifest_file:
-    json.dump(manifest_data, manifest_file, indent=4)
+#gameCanvas {
+    border: 2px solid #000;
+    display: block;
+    margin: 0 auto;
+}
 
-print("manifest.json file created successfully!")
+#installButton {
+    margin-top: 20px;
+    padding: 10px 20px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
 
-import pygame
-import random
+#installButton:hover {
+    background-color: #45a049;
+}
+document.addEventListener("DOMContentLoaded", () => {
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
 
-colors = [
-    (0, 0, 0),
-    (120, 37, 179),
-    (100, 179, 179),
-    (80, 34, 22),
-    (80, 134, 22),
-    (180, 34, 22),
-    (180, 34, 122),
-]
+    // Constants
+    const COLS = 10;
+    const ROWS = 20;
+    const BLOCK_SIZE = 25; // Size of each block
 
+    // Colors
+    const colors = [
+        null, // No color for the background
+        "red", "blue", "green", "yellow", "cyan", "magenta", "orange", "purple"
+    ];
 
-class Figure:
-    x = 0
-    y = 0
+    // Tetris pieces (Tetrominoes)
+    const tetrominoes = [
+        [[1, 1, 1, 1]], // I shape
+        [[1, 1], [1, 1]], // O shape
+        [[1, 0, 0], [1, 1, 1]], // L shape
+        [[0, 0, 1], [1, 1, 1]], // J shape
+        [[1, 1, 0], [0, 1, 1]], // S shape
+        [[0, 1, 1], [1, 1, 0]], // Z shape
+        [[0, 1, 0], [1, 1, 1]], // T shape
+    ];
 
-    figures = [
-        [[1, 5, 9, 13], [4, 5, 6, 7]],
-        [[4, 5, 9, 10], [2, 6, 5, 9]],
-        [[6, 7, 9, 10], [1, 5, 6, 10]],
-        [[1, 2, 5, 9], [0, 4, 5, 6], [1, 5, 9, 8], [4, 5, 6, 10]],
-        [[1, 2, 6, 10], [5, 6, 7, 9], [2, 6, 10, 11], [3, 5, 6, 7]],
-        [[1, 4, 5, 6], [1, 4, 5, 9], [4, 5, 6, 9], [1, 5, 6, 9]],
-        [[1, 2, 5, 6]],
-    ]
+    // Game state variables
+    let board = Array.from({ length: ROWS }, () => Array(COLS).fill(0));
+    let currentPiece = generateRandomPiece();
+    let currentX = Math.floor(COLS / 2) - 1;
+    let currentY = 0;
+    let score = 0;
+    let gameOver = false;
 
-    def __init__(self, x, y):
-        self.x = x
-        self.y = y
-        self.type = random.randint(0, len(self.figures) - 1)
-        self.color = random.randint(1, len(colors) - 1)
-        self.rotation = 0
+    // Generate a random Tetromino piece
+    function generateRandomPiece() {
+        const piece = tetrominoes[Math.floor(Math.random() * tetrominoes.length)];
+        return piece;
+    }
 
-    def image(self):
-        return self.figures[self.type][self.rotation]
+    // Draw the game board
+    function drawBoard() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height); // Clear the canvas
 
-    def rotate(self):
-        self.rotation = (self.rotation + 1) % len(self.figures[self.type])
+        // Draw the board
+        for (let row = 0; row < ROWS; row++) {
+            for (let col = 0; col < COLS; col++) {
+                if (board[row][col] > 0) {
+                    ctx.fillStyle = colors[board[row][col]];
+                    ctx.fillRect(col * BLOCK_SIZE, row * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+                    ctx.strokeStyle = "black";
+                    ctx.strokeRect(col * BLOCK_SIZE, row * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+                }
+            }
+        }
 
+        // Draw the current piece
+        for (let row = 0; row < currentPiece.length; row++) {
+            for (let col = 0; col < currentPiece[row].length; col++) {
+                if (currentPiece[row][col] > 0) {
+                    ctx.fillStyle = colors[currentPiece[row][col]];
+                    ctx.fillRect((currentX + col) * BLOCK_SIZE, (currentY + row) * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+                    ctx.strokeStyle = "black";
+                    ctx.strokeRect((currentX + col) * BLOCK_SIZE, (currentY + row) * BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+                }
+            }
+        }
+    }
 
-class Tetris:
-    def __init__(self, height, width):
-        self.level = 2
-        self.score = 0
-        self.state = "start"
-        self.field = []
-        self.height = 0
-        self.width = 0
-        self.x = 100
-        self.y = 60
-        self.zoom = 20
-        self.figure = None
-    
-        self.height = height
-        self.width = width
-        self.field = []
-        self.score = 0
-        self.state = "start"
-        for i in range(height):
-            new_line = []
-            for j in range(width):
-                new_line.append(0)
-            self.field.append(new_line)
+    // Check for collisions
+    function checkCollision() {
+        for (let row = 0; row < currentPiece.length; row++) {
+            for (let col = 0; col < currentPiece[row].length; col++) {
+                if (currentPiece[row][col] > 0) {
+                    let newX = currentX + col;
+                    let newY = currentY + row;
 
-    def new_figure(self):
-        self.figure = Figure(3, 0)
+                    if (newX < 0 || newX >= COLS || newY >= ROWS || board[newY] && board[newY][newX] > 0) {
+                        return true; // Collision detected
+                    }
+                }
+            }
+        }
+        return false; // No collision
+    }
 
-    def intersects(self):
-        intersection = False
-        for i in range(4):
-            for j in range(4):
-                if i * 4 + j in self.figure.image():
-                    if i + self.figure.y > self.height - 1 or \
-                            j + self.figure.x > self.width - 1 or \
-                            j + self.figure.x < 0 or \
-                            self.field[i + self.figure.y][j + self.figure.x] > 0:
-                        intersection = True
-        return intersection
+    // Place the current piece on the board
+    function placePiece() {
+        for (let row = 0; row < currentPiece.length; row++) {
+            for (let col = 0; col < currentPiece[row].length; col++) {
+                if (currentPiece[row][col] > 0) {
+                    board[currentY + row][currentX + col] = currentPiece[row][col];
+                }
+            }
+        }
+        clearLines();
+        currentPiece = generateRandomPiece();
+        currentX = Math.floor(COLS / 2) - 1;
+        currentY = 0;
+        if (checkCollision()) {
+            gameOver = true;
+        }
+    }
 
-    def break_lines(self):
-        lines = 0
-        for i in range(1, self.height):
-            zeros = 0
-            for j in range(self.width):
-                if self.field[i][j] == 0:
-                    zeros += 1
-            if zeros == 0:
-                lines += 1
-                for i1 in range(i, 1, -1):
-                    for j in range(self.width):
-                        self.field[i1][j] = self.field[i1 - 1][j]
-        self.score += lines ** 2
+    // Clear full lines
+    function clearLines() {
+        for (let row = ROWS - 1; row >= 0; row--) {
+            if (board[row].every(cell => cell > 0)) {
+                board.splice(row, 1);
+                board.unshift(Array(COLS).fill(0));
+                score += 100;
+            }
+        }
+    }
 
-    def go_space(self):
-        while not self.intersects():
-            self.figure.y += 1
-        self.figure.y -= 1
-        self.freeze()
+    // Handle user input for controlling the piece
+    function handleInput(event) {
+        if (gameOver) return;
 
-    def go_down(self):
-        self.figure.y += 1
-        if self.intersects():
-            self.figure.y -= 1
-            self.freeze()
+        if (event.key === "ArrowLeft") {
+            currentX--;
+            if (checkCollision()) currentX++;
+        } else if (event.key === "ArrowRight") {
+            currentX++;
+            if (checkCollision()) currentX--;
+        } else if (event.key === "ArrowDown") {
+            currentY++;
+            if (checkCollision()) {
+                currentY--;
+                placePiece();
+            }
+        } else if (event.key === "ArrowUp") {
+            const rotated = rotatePiece();
+            if (!checkCollision()) {
+                currentPiece = rotated;
+            }
+        }
+    }
 
-    def freeze(self):
-        for i in range(4):
-            for j in range(4):
-                if i * 4 + j in self.figure.image():
-                    self.field[i + self.figure.y][j + self.figure.x] = self.figure.color
-        self.break_lines()
-        self.new_figure()
-        if self.intersects():
-            self.state = "gameover"
+    // Rotate the current piece
+    function rotatePiece() {
+        const rotated = currentPiece[0].map((_, index) =>
+            currentPiece.map(row => row[index])
+        ).reverse();
+        return rotated;
+    }
 
-    def go_side(self, dx):
-        old_x = self.figure.x
-        self.figure.x += dx
-        if self.intersects():
-            self.figure.x = old_x
+    // Game loop
+    function gameLoop() {
+        if (gameOver) {
+            alert("Game Over! Score: " + score);
+            return;
+        }
 
-    def rotate(self):
-        old_rotation = self.figure.rotation
-        self.figure.rotate()
-        if self.intersects():
-            self.figure.rotation = old_rotation
+        drawBoard();
+        requestAnimationFrame(gameLoop);
+    }
 
+    // Listen for keypress events
+    window.addEventListener("keydown", handleInput);
 
-# Initialize the game engine
-pygame.init()
+    // Start the game
+    gameLoop();
+});
+{
+  "name": "Tetris Game",
+  "short_name": "Tetris",
+  "description": "A fun and interactive Tetris game",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#000000",
+  "icons": [
+    {
+      "src": "icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
+self.addEventListener('install', event => {
+    event.waitUntil(
+        caches.open('tetris-cache').then(cache => {
+            return cache.addAll([
+                '/',
+                '/index.html',
+                '/style.css',
+                '/game.js',
+                '/manifest.json',
+                '/icon-192.png',
+                '/icon-512.png'
+            ]);
+        })
+    );
+});
 
-# Define some colors
-BLACK = (0, 0, 0)
-WHITE = (255, 255, 255)
-GRAY = (128, 128, 128)
+self.addEventListener('fetch', event => {
+    event.respondWith(
+        caches.match(event.request).then(cachedResponse => {
+            return cachedResponse || fetch(event.request);
+        })
+    );
+});
+self.addEventListener('install', event => {
+    event.waitUntil(
+        caches.open('tetris-cache').then(cache => {
+            return cache.addAll([
+                '/',
+                '/index.html',
+                '/style.css',
+                '/game.js',
+                '/manifest.json',
+                '/icon-192.png',
+                '/icon-512.png'
+            ]);
+        })
+    );
+});
 
-size = (400, 500)
-screen = pygame.display.set_mode(size)
+self.addEventListener('fetch', event => {
+    event.respondWith(
+        caches.match(event.request).then(cachedResponse => {
+            return cachedResponse || fetch(event.request);
+        })
+    );
+});
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/service-worker.js').then(registration => {
+            console.log('Service Worker registered with scope:', registration.scope);
+        }).catch(error => {
+            console.log('Service Worker registration failed:', error);
+        });
+    });
+}
 
-pygame.display.set_caption("Tetris")
-
-# Loop until the user clicks the close button.
-done = False
-clock = pygame.time.Clock()
-fps = 25
-game = Tetris(20, 10)
-counter = 0
-
-pressing_down = False
-
-while not done:
-    if game.figure is None:
-        game.new_figure()
-    counter += 1
-    if counter > 100000:
-        counter = 0
-
-    if counter % (fps // game.level // 2) == 0 or pressing_down:
-        if game.state == "start":
-            game.go_down()
-
-    for event in pygame.event.get():
-        if event.type == pygame.QUIT:
-            done = True
-        if event.type == pygame.KEYDOWN:
-            if event.key == pygame.K_UP:
-                game.rotate()
-            if event.key == pygame.K_DOWN:
-                pressing_down = True
-            if event.key == pygame.K_LEFT:
-                game.go_side(-1)
-            if event.key == pygame.K_RIGHT:
-                game.go_side(1)
-            if event.key == pygame.K_SPACE:
-                game.go_space()
-            if event.key == pygame.K_ESCAPE:
-                game.__init__(20, 10)
-
-    if event.type == pygame.KEYUP:
-            if event.key == pygame.K_DOWN:
-                pressing_down = False
-
-    screen.fill(WHITE)
-
-    for i in range(game.height):
-        for j in range(game.width):
-            pygame.draw.rect(screen, GRAY, [game.x + game.zoom * j, game.y + game.zoom * i, game.zoom, game.zoom], 1)
-            if game.field[i][j] > 0:
-                pygame.draw.rect(screen, colors[game.field[i][j]],
-                                 [game.x + game.zoom * j + 1, game.y + game.zoom * i + 1, game.zoom - 2, game.zoom - 1])
-
-    if game.figure is not None:
-        for i in range(4):
-            for j in range(4):
-                p = i * 4 + j
-                if p in game.figure.image():
-                    pygame.draw.rect(screen, colors[game.figure.color],
-                                     [game.x + game.zoom * (j + game.figure.x) + 1,
-                                      game.y + game.zoom * (i + game.figure.y) + 1,
-                                      game.zoom - 2, game.zoom - 2])
-
-    font = pygame.font.SysFont('Calibri', 25, True, False)
-    font1 = pygame.font.SysFont('Calibri', 65, True, False)
-    text = font.render("Score: " + str(game.score), True, BLACK)
-    text_game_over = font1.render("Game Over", True, (255, 125, 0))
-    text_game_over1 = font1.render("Press ESC", True, (255, 215, 0))
-
-    screen.blit(text, [0, 0])
-    if game.state == "gameover":
-        screen.blit(text_game_over, [20, 200])
-        screen.blit(text_game_over1, [25, 265])
-
-    pygame.display.flip()
-    clock.tick(fps)
-
-pygame.quit()
